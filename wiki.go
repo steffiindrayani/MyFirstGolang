@@ -65,7 +65,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request, title string) {
 			log.Println(id)
 		}
 		if i == 0 {
-		  fmt.Println("meong")
+		  	http.Redirect(w, r, "/login/"+title, http.StatusFound)
 		} else {
 			http.Redirect(w, r, "/home/"+title, http.StatusFound)
 		}
@@ -77,8 +77,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request, title string) {
 	} else {
 		p, err := loadPage(title)
 		if err != nil {
-			http.Redirect(w, r, "/register/"+title, http.StatusFound)
-			return
+			p = &Page{Title: title}
 		}
 		renderTemplate(w, "login", p)
 	}
@@ -115,6 +114,8 @@ func registerHandler(w http.ResponseWriter, r *http.Request, title string) {
 	        panic(er.Error())
 	    }   
 		defer db.Close()
+
+		http.Redirect(w, r, "/home/"+title, http.StatusFound)
 	}
 }
 

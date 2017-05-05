@@ -13,6 +13,7 @@ import (
 	"database/sql"
 	_ "github.com/go-sql-driver/mysql"
 	"strings"
+	"log"
 )
 
 type Page struct {
@@ -48,18 +49,25 @@ func loginHandler(w http.ResponseWriter, r *http.Request, title string) {
 		}
 
 		//Find user
-		var id int
-		rows, err := db.Query("SELECT * FROM USER WHERE username=? AND password=?", username, password)
+		var id int		
+		rows, err := db.Query("SELECT id FROM USER WHERE username=? AND password=?", username, password)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer rows.Close()
 		i := 0
 		for rows.Next(){
-		   i++
-		   err = rows.Scan(&id)
-		   //handle error and process user
+			err := rows.Scan(&id)
+			if err != nil {
+				log.Fatal(err)
+			}
+			i++
+			log.Println(id)
 		}
 		if i == 0 {
 		  fmt.Println("meong")
 		} else {
-			fmt.Printf("Username is %s\n", id)
+			http.Redirect(w, r, "/home/"+title, http.StatusFound)
 		}
 
 		defer rows.Close()
@@ -69,7 +77,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request, title string) {
 	} else {
 		p, err := loadPage(title)
 		if err != nil {
-			http.Redirect(w, r, "/regiister/"+title, http.StatusFound)
+			http.Redirect(w, r, "/register/"+title, http.StatusFound)
 			return
 		}
 		renderTemplate(w, "login", p)
@@ -110,18 +118,18 @@ func registerHandler(w http.ResponseWriter, r *http.Request, title string) {
 	}
 }
 
-func saveHandler(w http.ResponseWriter, r *http.Request, title string) {
-	body := r.FormValue("body")
-	p := &Page{Title: title, Body: []byte(body)}
-	err := p.save()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+func homeHandler(w http.ResponseWriter, r *http.Request, title string) {
+	if r.Method == "GET" {
+		p, err := loadPage(title)
+		if err != nil {
+			p = &Page{Title: title}
+		}
+		renderTemplate(w, "home", p)
 	}
-	http.Redirect(w, r, "/login/"+title, http.StatusFound)
 }
 
-var templates = template.Must(template.ParseFiles("register.html", "login.html"))
+
+var templates = template.Must(template.ParseFiles("register.html", "login.html", "home.html"))
 
 func renderTemplate(w http.ResponseWriter, tmpl string, p *Page) {
 	err := templates.ExecuteTemplate(w, tmpl+".html", p)
@@ -130,7 +138,7 @@ func renderTemplate(w http.ResponseWriter, tmpl string, p *Page) {
 	}
 }
 
-var validPath = regexp.MustCompile("^/(register|save|login)/([a-zA-Z0-9]+)$")
+var validPath = regexp.MustCompile("^/(register|home|login)/([a-zA-Z0-9]+)$")
 
 func makeHandler(fn func(http.ResponseWriter, *http.Request, string)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -143,14 +151,11 @@ func makeHandler(fn func(http.ResponseWriter, *http.Request, string)) http.Handl
 	}
 }
 
-func validate() {
-	
-}
-
 func main() {
 	http.HandleFunc("/login/", makeHandler(loginHandler))
 	http.HandleFunc("/register/", makeHandler(registerHandler))
-	http.HandleFunc("/save/", makeHandler(saveHandler))
+	http.HandleFunc("/home/", makeHandler(homeHandler))
+
 
 	http.ListenAndServe(":8080", nil)
 }
